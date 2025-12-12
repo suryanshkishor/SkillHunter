@@ -130,55 +130,185 @@ const CameraDirector = ({ gameState }: { gameState: GameState }) => {
 // Tactical Drone that represents the AI Chatbot
 const TacticalDrone = ({ isThinking, position = [-2, 2, 2] }: { isThinking: boolean, position?: [number, number, number] }) => {
     const group = useRef<THREE.Group>(null);
-    useFrame((state) => {
-        if(!group.current) return;
+    const bodyMesh = useRef<THREE.Group>(null);
+    const ringRef = useRef<THREE.Mesh>(null);
+    const lightRef = useRef<THREE.PointLight>(null);
+
+    // Idle state
+    const nextBlink = useRef(Math.random() * 3 + 1);
+    const isBlinking = useRef(false);
+    const blinkDuration = 0.2;
+    const blinkTimer = useRef(0);
+
+    const targetRotY = useRef(0);
+    const nextLookTime = useRef(0);
+
+    useFrame((state, delta) => {
+        if(!group.current || !bodyMesh.current || !ringRef.current || !lightRef.current) return;
         const t = state.clock.getElapsedTime();
-        group.current.position.y = position[1] + Math.sin(t * 2) * 0.2;
-        group.current.rotation.y += 0.02;
+
+        // 1. Advanced Hover (Breathing)
+        // Combine two sine waves for less robotic movement
+        const hoverY = Math.sin(t * 1.5) * 0.15 + Math.sin(t * 0.5) * 0.05;
+        group.current.position.y = position[1] + hoverY;
+        
+        // 2. Looking Around (Head Turns)
+        if (t > nextLookTime.current) {
+            // Pick a new random angle within -45 to 45 degrees relative to front
+            targetRotY.current = (Math.random() - 0.5) * 1.5; 
+            nextLookTime.current = t + 2 + Math.random() * 3;
+        }
+        
+        // Smoothly rotate body towards target
+        // We add a continuous slow rotation as well to keep it alive
+        const idleRot = Math.sin(t * 0.2) * 0.2;
+        bodyMesh.current.rotation.y = THREE.MathUtils.lerp(bodyMesh.current.rotation.y, targetRotY.current + idleRot, delta * 2);
+        
+        // Tilt slightly when moving/rotating
+        bodyMesh.current.rotation.z = Math.sin(t * 1) * 0.05;
+        bodyMesh.current.rotation.x = Math.sin(t * 0.7) * 0.05;
+
+        // 3. Blinking (Aperture effect on ring)
+        if (t > nextBlink.current && !isThinking) { // Don't blink if thinking (busy)
+            isBlinking.current = true;
+            blinkTimer.current = 0;
+            nextBlink.current = t + 3 + Math.random() * 5;
+        }
+
+        if (isBlinking.current) {
+            blinkTimer.current += delta;
+            // Parabolic blink curve: 0 -> 1 -> 0
+            const progress = blinkTimer.current / blinkDuration;
+            if (progress >= 1) {
+                isBlinking.current = false;
+                ringRef.current.scale.set(1, 1, 1);
+                lightRef.current.intensity = 5;
+            } else {
+                // Close aperture (scale down)
+                const closeAmount = Math.sin(progress * Math.PI); // 0 at start, 1 at mid, 0 at end
+                const scale = 1 - closeAmount * 0.9; // Scale down to 0.1
+                ringRef.current.scale.set(scale, scale, scale);
+                lightRef.current.intensity = 5 * (1 - closeAmount * 0.8); // Dim light
+            }
+        } else {
+             // Pulse effect when thinking
+             if (isThinking) {
+                 const pulse = Math.sin(t * 10) * 0.2 + 1;
+                 ringRef.current.scale.set(pulse, pulse, pulse);
+                 lightRef.current.intensity = 5 + Math.sin(t * 10) * 2;
+             } else {
+                 ringRef.current.scale.lerp(new THREE.Vector3(1, 1, 1), delta * 5);
+                 lightRef.current.intensity = THREE.MathUtils.lerp(lightRef.current.intensity, 5, delta * 2);
+             }
+        }
     });
 
     return (
         <group ref={group} position={new THREE.Vector3(...position)}>
-            <Sphere args={[0.2, 16, 16]}>
-                <meshStandardMaterial color="#333" roughness={0.2} metalness={0.8} />
-            </Sphere>
-            <Torus args={[0.3, 0.02, 16, 32]} rotation={[Math.PI/2, 0, 0]}>
-                 <meshBasicMaterial color={isThinking ? THEME.orange : THEME.cyan} />
-            </Torus>
-             <pointLight color={isThinking ? THEME.orange : THEME.cyan} distance={3} intensity={5} />
+            <group ref={bodyMesh}>
+                <Sphere args={[0.2, 16, 16]}>
+                    <meshStandardMaterial color="#222" roughness={0.4} metalness={0.8} />
+                </Sphere>
+                {/* Mechanical details */}
+                <Box args={[0.25, 0.02, 0.25]} position={[0, 0, 0]}>
+                     <meshStandardMaterial color="#111" />
+                </Box>
+                
+                {/* Eye Ring */}
+                <group rotation={[Math.PI/2, 0, 0]}>
+                    <Torus ref={ringRef} args={[0.3, 0.02, 16, 32]}>
+                        <meshBasicMaterial color={isThinking ? THEME.orange : THEME.cyan} />
+                    </Torus>
+                </group>
+
+                {/* Main Light / Eye */}
+                <pointLight ref={lightRef} color={isThinking ? THEME.orange : THEME.cyan} distance={5} decay={2} intensity={5} />
+                
+                {/* Lens Flare core */}
+                 <Sphere args={[0.08, 16, 16]}>
+                    <meshBasicMaterial color={isThinking ? THEME.orange : THEME.cyan} transparent opacity={0.8} />
+                </Sphere>
+            </group>
         </group>
     )
 }
 
 const CharacterModel = ({ type, color }: { type: string, color: string }) => {
   const group = useRef<THREE.Group>(null);
+  const headGroup = useRef<THREE.Group>(null);
+  const bodyGroup = useRef<THREE.Group>(null);
+  const visorRef = useRef<THREE.Mesh>(null);
   
+  // Animation state
+  const nextBlinkTime = useRef(Math.random() * 3 + 1);
+  const isBlinking = useRef(false);
+
   useFrame((state) => {
-    if (!group.current) return;
+    if (!group.current || !headGroup.current || !bodyGroup.current || !visorRef.current) return;
     const t = state.clock.getElapsedTime();
+
+    // 1. Idle Float (Whole Character)
     group.current.position.y = Math.sin(t * 1.5) * 0.02 - 1; 
+
+    // 2. Breathing (Body)
+    const breathCyc = Math.sin(t * 2.5);
+    const scaleY = 1 + breathCyc * 0.015; 
+    bodyGroup.current.scale.set(1, scaleY, 1);
+    
+    // 3. Head Animation
+    // Smooth random-looking rotation
+    headGroup.current.rotation.y = Math.sin(t * 0.3) * 0.15 + Math.sin(t * 1.1) * 0.05;
+    headGroup.current.rotation.x = Math.sin(t * 0.5) * 0.05;
+    // Head bob connected to breathing (lagged slightly)
+    headGroup.current.position.y = 1.6 + Math.sin(t * 2.5 - 0.5) * 0.005;
+
+    // 4. Blinking
+    if (t > nextBlinkTime.current) {
+        isBlinking.current = true;
+    }
+
+    if (isBlinking.current) {
+        visorRef.current.scale.y = THREE.MathUtils.lerp(visorRef.current.scale.y, 0.1, 0.4);
+        if (visorRef.current.scale.y < 0.15) {
+            isBlinking.current = false;
+            nextBlinkTime.current = t + 2 + Math.random() * 4;
+        }
+    } else {
+        visorRef.current.scale.y = THREE.MathUtils.lerp(visorRef.current.scale.y, 1, 0.2);
+    }
   });
 
   return (
     <group ref={group} position={[-3, -1, 0]} rotation={[0, 0.4, 0]}>
-       {/* Generic Hero Base - customized by color/props in future */}
-       <group position={[0, 1.6, 0]}>
+       
+       {/* HEAD GROUP */}
+       <group ref={headGroup} position={[0, 1.6, 0]}>
+          {/* Main Head Block */}
           <Box args={[0.45, 0.55, 0.5]} material-color="#1a1a2e" />
-          <Box args={[0.48, 0.15, 0.3]} position={[0, 0.05, 0.15]}>
+          
+          {/* Visor / Eyes */}
+          <Box ref={visorRef} args={[0.48, 0.15, 0.3]} position={[0, 0.05, 0.15]}>
               <meshBasicMaterial color={color} />
           </Box>
+
+          {/* Specter Halo - moves with head now */}
+          {type === 'specter' && (
+             <Torus args={[0.6, 0.05, 16, 32]} rotation={[Math.PI/2, 0, 0]} position={[0, 0.2, 0]}>
+                <meshBasicMaterial color={color} transparent opacity={0.5} />
+             </Torus>
+          )}
        </group>
-       <Box args={[0.7, 1.1, 0.4]} position={[0, 0.7, 0]} material-color="#111" />
        
-       {/* Role Specific Visuals */}
-       {type === 'specter' && (
-           <Torus args={[0.6, 0.05, 16, 32]} rotation={[Math.PI/2, 0, 0]} position={[0, 1.8, 0]}>
-               <meshBasicMaterial color={color} transparent opacity={0.5} />
-           </Torus>
-       )}
-       {type === 'titan' && (
-           <Box args={[1.2, 0.8, 0.6]} position={[0, 0.8, 0]} material-color="#222" />
-       )}
+       {/* BODY GROUP */}
+       <group ref={bodyGroup} position={[0, 0.7, 0]}>
+            {/* Main Torso */}
+            <Box args={[0.7, 1.1, 0.4]} material-color="#111" />
+            
+            {/* Titan Armor - moves with body scale now */}
+            {type === 'titan' && (
+                <Box args={[1.2, 0.8, 0.6]} position={[0, 0.1, 0]} material-color="#222" />
+            )}
+       </group>
 
       <Cylinder args={[1, 1, 0.05, 32]} position={[0, 0, 0]}>
          <meshBasicMaterial color={color} wireframe opacity={0.3} transparent />
