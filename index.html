@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>SkillHunter - Tactical Career Royale</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            colors: {
+              neon: {
+                cyan: '#00f3ff',
+                purple: '#bc13fe',
+                gold: '#ffd700',
+                red: '#ff003c',
+                green: '#0aff0a',
+                orange: '#ff9900',
+              },
+              dark: '#0a0a12',
+              panel: 'rgba(15, 20, 35, 0.85)',
+            },
+            fontFamily: {
+              heading: ['Orbitron', 'sans-serif'],
+              ui: ['Rajdhani', 'sans-serif'],
+              mono: ['Share Tech Mono', 'monospace'],
+            },
+            animation: {
+              'pulse-fast': 'pulse 1s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+              'glitch': 'glitch 1s linear infinite',
+              'slide-in': 'slideIn 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards',
+              'slide-up': 'slideUp 0.5s ease-out forwards',
+              'scan': 'scan 2s linear infinite',
+              'typing': 'typing 2s steps(20, end)',
+            },
+            keyframes: {
+              glitch: {
+                '2%, 64%': { transform: 'translate(2px,0) skew(0deg)' },
+                '4%, 60%': { transform: 'translate(-2px,0) skew(0deg)' },
+                '62%': { transform: 'translate(0,0) skew(5deg)' },
+              },
+              slideIn: {
+                '0%': { opacity: '0', transform: 'translateX(-50px) skewX(-10deg)' },
+                '100%': { opacity: '1', transform: 'translateX(0) skewX(-10deg)' },
+              },
+              slideUp: {
+                '0%': { opacity: '0', transform: 'translateY(50px)' },
+                '100%': { opacity: '1', transform: 'translateY(0)' },
+              },
+              scan: {
+                '0%': { backgroundPosition: '0% 0%' },
+                '100%': { backgroundPosition: '0% 100%' },
+              }
+            }
+          }
+        }
+      }
+    </script>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;700;900&family=Rajdhani:wght@400;500;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+    <style>
+      body, html {
+        margin: 0;
+        padding: 0;
+        width: 100%;
+        height: 100%;
+        background-color: #050510;
+        overflow: hidden;
+      }
+      
+      #root {
+        width: 100%;
+        height: 100%;
+      }
+
+      /* APEX / PUBG STYLE SHAPES */
+      .clip-angled {
+        clip-path: polygon(
+          20px 0, 100% 0, 
+          100% calc(100% - 20px), calc(100% - 20px) 100%, 
+          0 100%, 0 20px
+        );
+      }
+      
+      .clip-trapezoid {
+        clip-path: polygon(0 0, 100% 0, 95% 100%, 5% 100%);
+      }
+      
+      .clip-chevron-right {
+        clip-path: polygon(0 0, 90% 0, 100% 50%, 90% 100%, 0 100%);
+      }
+
+      /* HOLOGRAPHIC EFFECTS */
+      .glass-holo {
+        background: linear-gradient(135deg, rgba(20, 25, 40, 0.9), rgba(10, 12, 20, 0.95));
+        backdrop-filter: blur(8px);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        box-shadow: 0 0 15px rgba(0, 0, 0, 0.5), inset 0 0 20px rgba(0, 243, 255, 0.05);
+      }
+
+      /* SCANLINES */
+      .scanlines {
+        background: linear-gradient(to bottom, rgba(255,255,255,0), rgba(255,255,255,0) 50%, rgba(0,0,0,0.1) 50%, rgba(0,0,0,0.1));
+        background-size: 100% 4px;
+        position: absolute;
+        inset: 0;
+        pointer-events: none;
+        z-index: 999;
+        opacity: 0.3;
+        animation: scan 10s linear infinite;
+      }
+      
+      /* CRT FLICKER */
+      .crt-flicker {
+        animation: opacity-pulse 0.1s infinite;
+      }
+
+      /* SCROLLBAR */
+      ::-webkit-scrollbar { width: 6px; }
+      ::-webkit-scrollbar-track { background: #0a0a12; }
+      ::-webkit-scrollbar-thumb { background: #00f3ff; border-radius: 3px; }
+    </style>
+  <script type="importmap">
+{
+  "imports": {
+    "react/": "https://esm.sh/react@^19.2.3/",
+    "react": "https://esm.sh/react@^19.2.3",
+    "@google/genai": "https://esm.sh/@google/genai@^1.33.0",
+    "lucide-react": "https://esm.sh/lucide-react@^0.561.0",
+    "react-dom/": "https://esm.sh/react-dom@^19.2.3/",
+    "@react-three/drei": "https://esm.sh/@react-three/drei@^10.7.7",
+    "@react-three/fiber": "https://esm.sh/@react-three/fiber@^9.4.2",
+    "three": "https://esm.sh/three@^0.182.0"
+  }
+}
+</script>
+</head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/index.tsx"></script>
+  </body>
+</html>
