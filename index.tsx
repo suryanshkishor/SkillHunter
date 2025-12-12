@@ -341,53 +341,86 @@ const MapNodes = ({ onSelectJob }: { onSelectJob: (j: any) => void }) => {
 };
 
 const EnemyBoss = ({ job, hp, maxHp }: { job: any, hp: number, maxHp: number }) => {
-  const meshRef = useRef<THREE.Group>(null);
+  const groupRef = useRef<THREE.Group>(null);
+  const coreRef = useRef<THREE.Group>(null);
   const ringRef = useRef<THREE.Mesh>(null);
+  const minionsRef = useRef<THREE.Group>(null);
 
   useFrame((state) => {
-    if (!meshRef.current || !ringRef.current) return;
+    if (!groupRef.current || !coreRef.current || !ringRef.current || !minionsRef.current) return;
     const t = state.clock.getElapsedTime();
-    meshRef.current.rotation.y += 0.005;
-    meshRef.current.position.y = Math.sin(t) * 0.3;
     
-    ringRef.current.rotation.z = -t * 0.5;
-    ringRef.current.rotation.x = t * 0.2;
+    // 1. Dynamic Hover (Complex Wave)
+    groupRef.current.position.y = 0.5 + Math.sin(t * 0.8) * 0.2 + Math.cos(t * 0.3) * 0.05;
+
+    // 2. Breathing (Scale) - Inner Core pulsing with health status
+    // Pulse faster if low HP?
+    const healthPercent = hp / maxHp;
+    const pulseSpeed = 2 + (1 - healthPercent) * 5; // Faster when low HP
+    const breath = 1 + Math.sin(t * pulseSpeed) * 0.05;
+    coreRef.current.scale.set(breath, breath, breath);
+
+    // 3. Pose Shift (Rotation)
+    // Base rotation + subtle wobbles
+    groupRef.current.rotation.y += 0.005; 
+    groupRef.current.rotation.x = Math.sin(t * 0.5) * 0.05; 
+    groupRef.current.rotation.z = Math.cos(t * 0.35) * 0.05; 
+
+    // 4. Ring Animation (Gyroscopic / Unstable)
+    ringRef.current.rotation.x = Math.sin(t * 0.5) * 0.4;
+    ringRef.current.rotation.y = Math.cos(t * 0.4) * 0.4;
+    ringRef.current.rotation.z -= 0.02;
+
+    // 5. Minions Orbit & Float
+    minionsRef.current.rotation.y -= 0.01; // Orbit entire group
+    minionsRef.current.children.forEach((minion, i) => {
+        // Individual bobbing for minions relative to group
+        const offset = i * 2;
+        minion.position.y = Math.sin(t * 2 + offset) * 0.3;
+        // Individual rotation
+        minion.rotation.x += 0.02;
+        minion.rotation.y += 0.03;
+    });
   });
 
   if (hp <= 0) return null;
 
   return (
-    <group ref={meshRef} position={[3, 0.5, 0]} rotation={[0, -0.5, 0]}>
-        {/* Core Boss Mesh */}
-        <mesh>
-          <Octahedron args={[1.5, 0]}>
-             <meshStandardMaterial color="#111" metalness={0.9} roughness={0.1} />
-          </Octahedron>
-          <meshBasicMaterial color={job.color} wireframe transparent opacity={0.3} />
-        </mesh>
-        
-        {/* Glowing Inner Core */}
-        <mesh scale={[0.5, 0.5, 0.5]}>
-            <Icosahedron args={[1, 1]}>
-                <meshBasicMaterial color={THEME.red} />
-            </Icosahedron>
-        </mesh>
+    <group ref={groupRef} position={[3, 0.5, 0]}>
+        {/* Inner Core Group (Breathing) */}
+        <group ref={coreRef}>
+            <mesh>
+              <Octahedron args={[1.5, 0]}>
+                 <meshStandardMaterial color="#111" metalness={0.9} roughness={0.1} />
+              </Octahedron>
+              <meshBasicMaterial color={job.color} wireframe transparent opacity={0.3} />
+            </mesh>
+            
+            {/* Glowing Center */}
+            <mesh scale={[0.5, 0.5, 0.5]}>
+                <Icosahedron args={[1, 1]}>
+                    <meshBasicMaterial color={THEME.red} />
+                </Icosahedron>
+            </mesh>
+        </group>
 
-        {/* Rotating Shield Ring */}
+        {/* Shield Ring (Independent Rotation) */}
         <Torus ref={ringRef} args={[2.5, 0.05, 16, 64]}>
             <meshBasicMaterial color={THEME.red} transparent opacity={0.5} />
         </Torus>
         
-        {/* Minions */}
-        {[...Array(3)].map((_, i) => (
-             <mesh key={i} position={[Math.cos(i*2)*3, Math.sin(i*2)*1, Math.sin(i*3)*3]}>
-                 <Octahedron args={[0.3, 0]}>
-                    <meshBasicMaterial color={THEME.red} wireframe />
-                 </Octahedron>
-             </mesh>
-        ))}
+        {/* Minions Group */}
+        <group ref={minionsRef}>
+            {[...Array(3)].map((_, i) => (
+                 <mesh key={i} position={[Math.cos(i * (Math.PI * 2 / 3)) * 3.5, 0, Math.sin(i * (Math.PI * 2 / 3)) * 3.5]}>
+                     <Octahedron args={[0.3, 0]}>
+                        <meshBasicMaterial color={THEME.red} wireframe />
+                     </Octahedron>
+                 </mesh>
+            ))}
+        </group>
 
-        <Text position={[0, 2.5, 0]} fontSize={0.4} color={THEME.red} font="https://fonts.gstatic.com/s/orbitron/v25/yMJMMIlzdpvBhQQL_SC3X9yhF25-T1nygyU.woff">
+        <Text position={[0, 2.8, 0]} fontSize={0.4} color={THEME.red} font="https://fonts.gstatic.com/s/orbitron/v25/yMJMMIlzdpvBhQQL_SC3X9yhF25-T1nygyU.woff">
             {job.title}
         </Text>
     </group>
